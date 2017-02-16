@@ -1,0 +1,158 @@
+
+#define your analyzer
+curl -XPUT 'localhost:9200/my_library?pretty' -H 'Content-Type: application/json' -d'
+{
+	  "settings": {
+		"analysis": {
+			"analyzer": {
+				"standard_clone": {
+					"tokenizer": "standard",
+					"filter": [
+						"standard",
+						"lowercase",
+						"stop"
+					]
+				}
+			}
+		}
+	}
+}
+'
+
+
+#check how the analyzer works
+
+curl -XGET 'localhost:9200/my_library/_analyze?pretty' -H 'Content-Type: application/json' -d'
+{
+  "analyzer": "standard_clone",
+  "text":"Dr. Strangelove: Or How I Learned to Stop Worrying and Love the Bomb"
+}
+'
+
+#a new analyzer that takes care of the steming , stopwords
+curl -XPUT 'localhost:9200/my_library2?pretty' -H 'Content-Type: application/json' -d'
+{
+		  "settings": {
+			"analysis": {
+				"filter": {
+					"english_stop": {
+						"type": "stop",
+						"stopwords": "_english_"
+					},
+					"english_stemmer": {
+						"type": "stemmer",
+						"language": "english"
+					},
+					"english_possessive_stemmer": {
+						"type": "stemmer",
+						"language": "possessive_english"
+					}
+				},
+				"analyzer": {
+					"english_clone": {
+						"tokenizer": "standard",
+						"filter": [
+							"english_possessive_stemmer",
+							"lowercase",
+							"english_stop",
+							"english_stemmer"
+						]
+					}
+				}
+			}
+		}
+	}
+}
+'
+
+curl -XGET 'localhost:9200/my_library2/_analyze?pretty' -H 'Content-Type: application/json' -d'
+{
+  "analyzer": "english_clone",
+  "text":"Dr. Strangelove: Or How I Learned to Stop Worrying and Love the Bomb"
+}
+'
+
+
+##taking care of acronym
+curl -XPUT 'localhost:9200/example?pretty' -H 'Content-Type: application/json' -d'
+{
+  "settings": {
+    "analysis": {
+      "filter": {
+        "acronyms": {
+          "type": "word_delimiter",
+          "catenate_all": true,
+          "generate_word_parts": false,
+          "generate_number_parts": false
+          }
+         },
+      "analyzer": {
+        "standard_with_acronyms": {
+          "tokenizer": "standard",
+          "filter": ["standard","lowercase","acronyms"]
+          }
+        }
+      }
+   }
+}
+'
+
+
+curl -XPUT 'localhost:9200/example3?pretty' -H 'Content-Type: application/json' -d'
+{
+  "settings": {
+    "analysis": {
+   "analyzer" : {
+      "default" : {
+        "type" : "english"
+      },
+      "english_bigrams": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": [
+            "standard",
+            "lowercase",
+            "porter_stem",
+            "bigram_filter"
+          ]
+      }
+    },
+  "filter": {
+    "bigram_filter": {
+        "type": "shingle",
+        "max_shingle_size":2,
+        "min_shingle_size":2,
+        "output_unigrams":"false"
+    }
+  }
+}
+      }
+   }
+}
+'
+
+
+#analyze on acronym
+curl -XGET 'localhost:9200/example/_analyze?pretty' -H 'Content-Type: application/json' -d'
+{
+  "analyzer": "standard_with_acronyms",
+  "text":"I.B.M. versus IBM versus ibm versu wi-fi versus wifi"
+}
+'
+
+
+curl -XGET 'localhost:9200/example3/_analyze?pretty' -H 'Content-Type: application/json' -d'
+{
+  "analyzer": "english_bigrams",
+  "text":"I.B.M. versus IBM versus ibm versu wi-fi versus wifi"
+}
+'
+
+##create afilter and add all the dictioanry terms
+##basically saying that dress shoe means dress_shoe or shoe
+
+"retail_syn_filter": {
+          "type": "synonym",
+          "synonyms": [
+        "dress shoe,dress shoes => dress_shoe, shoe"
+]}}
