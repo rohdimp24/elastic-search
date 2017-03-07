@@ -1,14 +1,6 @@
 
-import numpy as np
-from sklearn.cluster import KMeans
 import psycopg2
 import json
-import pickle
-import pandas as pd
-from sklearn.decomposition import PCA
-import matplotlib.pyplot as plt
-import json
-import math
 import requests
 
 #for some reason the user has to be postgres and not root
@@ -28,9 +20,11 @@ Variables:
 def getIntiialize(conn):
     cur = conn.cursor()
     # cur.mogrify("Select id,description from cases.smartsignal_jim_allfields where smartsignal_jim_allfields.equipmentType=%s",(equipmentType,))
-    cur.execute("SELECT \"caseId\", \"originalDescription\", \"normalizedDescription\", "
-                "\"originalPossibleCause\", \"normalizedPossibleCause\",  \"equipmentType\", "
-                "category FROM cases.iprc_normalized")
+    # cur.execute("SELECT \"caseId\", \"originalDescription\", \"normalizedDescription\", "
+    #             "\"originalPossibleCause\", \"normalizedPossibleCause\",  \"equipmentType\", "
+    #             "category FROM cases.iprc_normalized")
+
+    cur.execute("SELECT id,title,description,\"possibleCause\",\"equipmentType\" FROM cases.smartsignal_jim_allfields")
 
     rows = cur.fetchall()
 
@@ -38,7 +32,8 @@ def getIntiialize(conn):
     causes={}
     # display the rows
     for row in rows:
-        cases[row[0]]={"id":row[0],"details":row[1],"possibleCause":row[3],"equipmentType":row[5]}
+        #cases[row[0]]={"id":row[0],"details":row[1],"possibleCause":row[3],"equipmentType":row[5]}
+        cases[row[0]] = {"id": row[0], "title":row[1],"details": row[2], "possibleCause": row[3], "equipmentType": row[4]}
 
     return(cases)
 
@@ -95,6 +90,10 @@ def search(query):
     for idx, hit in enumerate(searchHits['hits']):
             #print(hit)
             print("%s\t%s\t\t%s\t\t%s" % (idx + 1,hit['_id'], hit['_score'], hit['_source']['details']))
+            if("title" in hit['highlight']):
+                print("%s"%hit['highlight']['title'])
+            if ("details" in hit['highlight']):
+                print("%s" % hit['highlight']['details'])
 
 
 #in the highlight section you need to list down the fields where to highlight. I tried with _all but not working.
@@ -111,8 +110,8 @@ def constructQueryString(usersSearch,queryFields):
                  # 'pre_tags' : ['<pre>', '<pre>'],
                  # 'post_tags' : ['<post>', '</post>'],
                 'fields' : {
-                           'details' : {},
-                            'possibleCause':{}
+                           'title' : {},
+                            'details':{}
                          }
             },
 
@@ -125,6 +124,28 @@ def explainInvertedIndex(data,analyzer):
     url = 'http://localhost:9200/iprc/_analyze?format=yaml&analyzer='+analyzer
     httpResp = requests.get(url, data=data)  # A
     print(httpResp.text)
+
+
+
+
+analysis_with_autocomplete={
+    "filter": {
+      "shingle_2": {
+        "type":"shingle",
+        "output_unigrams":"false"
+      }
+    },
+    "analyzer": {
+        "completion_analyzer": {
+            "tokenizer":
+              "standard",
+            "filter": [
+              "standard",
+              "lowercase",
+              "shingle_2"]
+        }
+    }
+}
 
 
 analysis_english = {
@@ -171,14 +192,32 @@ analysis_with_synonym={
 mappingSettings_with_synonym = {
     'cases': {
         'properties': {
+            "title": {
+                'type': 'string',
+                 'analyzer': 'english_clone',
+                'copy_to': ["completion"]
+
+                },
             "details": {
                 'type': 'string',
                  'analyzer': 'english_clone'
 
-                }
+                },
+
+            "completion": {
+                "type": "string",
+                "analyzer": "completion_analyzer"
+            }
+
             }
         }
     }
+
+
+
+
+
+
 
 
 '''With the bigrams'''
@@ -233,17 +272,17 @@ mappingSettings_with_bigrams = {
 reindex(casesDict=cases)
 search(constructQueryString("brgs",['details']))
 
-#using the english analyzer..this will remove the extra s...so the cases with brg and brgs will both come
+#using the english analyzer..this will remove the extra s...so the cases with brg and brgs will both come or tag and tags will both come
 reindex(analysisSettings=analysis_english,mappingSettings=None,casesDict=cases)
-search(constructQueryString("engine",['details']))
+search(constructQueryString("tags",['details']))
 
 #this query will have different output if you use the bigrams versus not the bigrams
 reindex(analysisSettings=analysisSettings_with_bigrams,mappingSettings=mappingSettings_with_bigrams,casesDict=cases)
-search(constructQueryString("TC Wheelspace",['details.bigrammed^10', 'details']))
+search(constructQueryString("drum level",['details.bigrammed^10', 'details']))
 
 #in this scenario the brgs is getthig translated to bearing..check the effect of adding lowercase in the analyzer
 reindex(analysisSettings=analysis_with_synonym,mappingSettings=mappingSettings_with_synonym,casesDict=cases)
-search(constructQueryString("brgs +vibrations",['details']))
+search(constructQueryString("bearing vibrations",['title','details']))
 
 
 
