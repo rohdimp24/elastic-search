@@ -401,7 +401,7 @@ search(constructQueryString("dsh",['title','details']))
 
 #https://gist.github.com/justinvw/5025854...talks about the autocompletion
 
-reindexAutoComplete(analysisSettings=analysis_with_autocomplete,mappingSettings=mappingSettings_with_autocomplete,suggestDict=assocDict)
+#reindexAutoComplete(analysisSettings=analysis_with_autocomplete,mappingSettings=mappingSettings_with_autocomplete,suggestDict=assocDict)
 
 
 
