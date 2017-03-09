@@ -1,0 +1,97 @@
+
+From https://gist.github.com/justinvw/5025854...talks about the autocompletion
+
+
+To Insert
+------------
+curl -X POST "http://localhost:9200/autocomplete_test/city" -d '{ "city" : "Pump" }'
+curl -X POST "http://localhost:9200/autocomplete_test/city" -d '{ "city" : "Pump Bearing" }'
+curl -X POST "http://localhost:9200/autocomplete_test/city" -d '{ "city" : "Bearing Pump Man" }'
+curl -X POST "http://localhost:9200/autocomplete_test/city" -d '{ "city" : "Amsterdam" }'
+curl -X POST "http://localhost:9200/autocomplete_test/city" -d '{ "city" : "Amsterdam" }'
+curl -X POST "http://localhost:9200/autocomplete_test/suggestions" -d '{ "suggestions" : "Pump" }'
+curl -X POST "http://localhost:9200/autocomplete_test/suggestions" -d '{ "suggestions" : "Pump Bearing" }'
+
+
+For Settings
+-------------
+curl -X PUT localhost:9200/autocomplete_test -d '
+{
+  "settings" : {
+    "index" : {
+      "analysis" : {
+        "analyzer" : {
+          "autocomplete_analyzer" : {
+            "type" : "custom",
+            "tokenizer" : "lowercase",
+            "filter"    : ["asciifolding", "title_ngram"]
+          }
+        },
+        "filter" : {
+          "title_ngram" : {
+            "type" : "nGram",
+            "min_gram" : 3,
+            "max_gram" : 5
+          }
+        }
+      }
+    }
+  },
+
+  "mappings": {
+    "city": {
+      "properties": {
+        "city": {
+          "type": "text",
+          "analyzer": "autocomplete_analyzer",
+          "boost": 10
+        }
+      }
+    }
+  }
+}
+'
+
+
+
+curl -X PUT localhost:9200/autocomplete_test -d '
+{
+  "settings" : {
+    "index" : {
+      "analysis" : {
+        "analyzer" : {
+          "autocomplete_analyzer" : {
+            "type" : "custom",
+            "tokenizer" : "lowercase",
+            "filter"    : ["asciifolding", "title_ngram"]
+          }
+        },
+        "filter" : {
+          "title_ngram" : {
+            "type" : "nGram",
+            "min_gram" : 3,
+            "max_gram" : 5
+          }
+        }
+      }
+    }
+  },
+
+  "mappings": {
+    "suggestions": {
+      "properties": {
+        "suggestions": {
+          "type": "text",
+          "analyzer": "autocomplete_analyzer",
+          "boost": 10
+        }
+      }
+    }
+  }
+}
+'
+
+-----
+For Query (Note the suggestions: is necessary)
+curl "http://localhost:9200/autocomplete_test/_search?q=suggestions:bear&pretty=True"
+
